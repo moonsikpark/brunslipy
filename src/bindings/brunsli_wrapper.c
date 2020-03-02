@@ -44,6 +44,11 @@ void buffer_st_init(buffer_st* buf)
     buf->size = 0;
 }
 
+void buffer_st_free(buffer_st* buf)
+{
+    free(buf->data);
+}
+
 int read_file(const char* filepath, buffer_st* buf)
 {
     FILE *f = fopen(filepath, "r");
@@ -56,7 +61,7 @@ int read_file(const char* filepath, buffer_st* buf)
     return 0;
 }
 
-size_t allocate_output(void* data, const unsigned char* buf, size_t count)
+size_t allocate_output(void* data, const unsigned char* buf, const size_t count)
 {
     buffer_st *buffer = (buffer_st *) data;
     buffer->data = realloc(buffer->data, buffer->size + count);
@@ -86,6 +91,7 @@ int write_file(const char* filepath, const buffer_st* buf)
 {
     FILE *f = fopen(filepath, "w");
     fwrite(buf->data, sizeof(unsigned char), buf->size, f);
+    fclose(f);
     return 0;
 }
 
@@ -104,9 +110,9 @@ int main(int argc, char** argv)
     int option_encode = -1;
 
     buffer_st in_file;
-    buffer_st_init(&in_file);
-
     buffer_st out_file;
+
+    buffer_st_init(&in_file);
     buffer_st_init(&out_file);
 
     if (argc != 4) {
@@ -135,8 +141,8 @@ int main(int argc, char** argv)
     write_file(argv[3], &out_file);
     fprintf(stdout, "Convert success! before=%zd after=%zd %.2f%%\n", in_file.size, out_file.size, (float) out_file.size / in_file.size * 100);
 
-    free(in_file.data);
-    free(out_file.data);
+    buffer_st_free(&in_file);
+    buffer_st_free(&out_file);
 
     return 0;
 }
