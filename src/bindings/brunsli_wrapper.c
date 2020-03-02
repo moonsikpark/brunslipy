@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 #include "brunsli/encode.h"
+#include "brunsli/decode.h"
+
 
 typedef struct buffer_st
 {
@@ -36,6 +38,11 @@ typedef struct buffer_st
     size_t size;
 } buffer_st;
 
+void buffer_st_init(buffer_st* buf)
+{
+    buf->data = NULL;
+    buf->size = 0;
+}
 
 int read_file(const char* filepath, buffer_st* buf)
 {
@@ -63,46 +70,69 @@ size_t allocate_output(void* data, const unsigned char* buf, size_t count)
 
 int encode_image(const buffer_st* inbuf, buffer_st* outbuf)
 {
-    int ret = -1;
-    outbuf->data = NULL;
-    outbuf->size = 0;
+    int ret;
     ret = EncodeBrunsli(inbuf->size, inbuf->data, outbuf, allocate_output);
-    if (ret == 1) {
-        ret = 0;
-    }
+    return ret;
+}
+
+int decode_image(const buffer_st* inbuf, buffer_st* outbuf)
+{
+    int ret;
+    ret = DecodeBrunsli(inbuf->size, inbuf->data, outbuf, allocate_output);
     return ret;
 }
 
 int write_file(const char* filepath, const buffer_st* buf)
 {
-    int ret = -1;
     FILE *f = fopen(filepath, "w");
-    if (!f) {
-        return ret;
-    }
-    ret = fwrite(buf->data, sizeof(unsigned char), buf->size, f);
-    return ret;
-
+    fwrite(buf->data, sizeof(unsigned char), buf->size, f);
+    return 0;
 }
 
 void usage()
 {
-    fprintf(stdout, "Syntax: brunsli_wrapper [input_file] [output_file]\n\n");
+    fprintf(stdout, "Syntax: brunsli_wrapper [option] [input_file] [output_file]\n\n"
+                    "Options:\n"
+                    "  -e, --encode Encode JPEG image to JXL image.\n"
+                    "  -d, --decode Decode JXL image to JPEG image.\n"
+                    "\n"
+            );
 }
 
 int main(int argc, char** argv)
 {
-    if (argc != 3) {
+    int option_encode = -1;
+
+    buffer_st in_file;
+    buffer_st_init(&in_file);
+
+    buffer_st out_file;
+    buffer_st_init(&out_file);
+
+    if (argc != 4) {
+        usage();
+        return -1;
+    }
+    if (strcmp(argv[1], "--encode") == 0 || strcmp(argv[1], "-e") == 0) {
+        option_encode = 1;
+    }
+    if (strcmp(argv[1], "--decode") == 0 || strcmp(argv[1], "-d") == 0) {
+        option_encode = 0;
+    }
+    if (option_encode < 0) {
         usage();
         return -1;
     }
 
-    buffer_st in_file;
-    buffer_st out_file;
+    read_file(argv[2], &in_file);
 
-    read_file(argv[1], &in_file);
-    encode_image(&in_file, &out_file);
-    write_file(argv[2], &out_file);
+    if (option_encode) {
+        encode_image(&in_file, &out_file);
+    } else {
+        decode_image(&in_file, &out_file);
+    }
+    
+    write_file(argv[3], &out_file);
     fprintf(stdout, "Convert success! before=%zd after=%zd %.2f%%\n", in_file.size, out_file.size, (float) out_file.size / in_file.size * 100);
 
     free(in_file.data);

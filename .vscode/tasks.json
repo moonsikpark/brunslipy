@@ -9,6 +9,7 @@
             "command": "/usr/bin/gcc",
             "args": [
                 "-lbrunslienc-c",
+                "-lbrunslidec-c",
                 "-g",
                 "${file}",
                 "-o",
