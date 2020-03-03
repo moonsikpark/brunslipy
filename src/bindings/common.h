@@ -25,60 +25,29 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdio.h>
+#ifndef BRUNSLI_BINDING_H_
+#define BRUNSLI_BINDING_H_
+
 #include <stdlib.h>
-#include <string.h>
 
-#include "common.h"
-
-void usage()
+typedef struct buffer_t
 {
-    fprintf(stdout, "Syntax: brunsli_wrapper [option] [input_file] [output_file]\n\n"
-                    "Options:\n"
-                    "  -e, --encode Encode JPEG image to JXL image.\n"
-                    "  -d, --decode Decode JXL image to JPEG image.\n"
-                    "\n"
-            );
-}
+    unsigned char *data;
+    size_t len;
+} buffer_t;
 
-int main(int argc, char** argv)
-{
-    int option_encode = -1;
+void buffer_t_init(buffer_t* buf);
 
-    buffer_t in_file;
-    buffer_t out_file;
+void buffer_t_free(buffer_t* buf);
 
-    buffer_t_init(&in_file);
-    buffer_t_init(&out_file);
+size_t allocate_output(void* data, const unsigned char* buf, const size_t count);
 
-    if (argc != 4) {
-        usage();
-        return -1;
-    }
-    if (strcmp(argv[1], "--encode") == 0 || strcmp(argv[1], "-e") == 0) {
-        option_encode = 1;
-    }
-    if (strcmp(argv[1], "--decode") == 0 || strcmp(argv[1], "-d") == 0) {
-        option_encode = 0;
-    }
-    if (option_encode < 0) {
-        usage();
-        return -1;
-    }
+int encode_image(const buffer_t* inbuf, buffer_t* outbuf);
 
-    read_file_to_buf(argv[2], &in_file);
+int decode_image(const buffer_t* inbuf, buffer_t* outbuf);
 
-    if (option_encode) {
-        encode_image(&in_file, &out_file);
-    } else {
-        decode_image(&in_file, &out_file);
-    }
-    
-    write_buf_to_file(argv[3], &out_file);
-    fprintf(stdout, "Convert success! before=%zd after=%zd %.2f%%\n", in_file.len, out_file.len, (float) out_file.len / in_file.len * 100);
+int read_file_to_buf(const char* filepath, buffer_t* buf);
 
-    buffer_t_free(&in_file);
-    buffer_t_free(&out_file);
+int write_buf_to_file(const char* filepath, const buffer_t* buf);
 
-    return 0;
-}
+#endif /* !defined(BRUNSLI_BINDING_H_) */

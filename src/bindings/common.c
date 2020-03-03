@@ -29,56 +29,65 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <string.h>
 
+
+#include "brunsli/encode.h"
+#include "brunsli/decode.h"
+
 #include "common.h"
 
-void usage()
+void buffer_t_init(buffer_t* buf)
 {
-    fprintf(stdout, "Syntax: brunsli_wrapper [option] [input_file] [output_file]\n\n"
-                    "Options:\n"
-                    "  -e, --encode Encode JPEG image to JXL image.\n"
-                    "  -d, --decode Decode JXL image to JPEG image.\n"
-                    "\n"
-            );
+    buf->data = NULL;
+    buf->len = 0;
 }
 
-int main(int argc, char** argv)
+void buffer_t_free(buffer_t* buf)
 {
-    int option_encode = -1;
+    free(buf->data);
+}
 
-    buffer_t in_file;
-    buffer_t out_file;
-
-    buffer_t_init(&in_file);
-    buffer_t_init(&out_file);
-
-    if (argc != 4) {
-        usage();
-        return -1;
+size_t allocate_output(void* data, const unsigned char* buf, const size_t count)
+{
+    buffer_t *buffer = (buffer_t *) data;
+    buffer->data = realloc(buffer->data, buffer->len + count);
+    if (!buffer->data) {
+        return 0;
     }
-    if (strcmp(argv[1], "--encode") == 0 || strcmp(argv[1], "-e") == 0) {
-        option_encode = 1;
-    }
-    if (strcmp(argv[1], "--decode") == 0 || strcmp(argv[1], "-d") == 0) {
-        option_encode = 0;
-    }
-    if (option_encode < 0) {
-        usage();
-        return -1;
-    }
+    memcpy(buffer->data + buffer->len, buf, count);
+    buffer->len += count;
+    return count;
+}
 
-    read_file_to_buf(argv[2], &in_file);
+int encode_image(const buffer_t* inbuf, buffer_t* outbuf)
+{
+    int ret;
+    ret = EncodeBrunsli(inbuf->len, inbuf->data, outbuf, allocate_output);
+    return ret;
+}
 
-    if (option_encode) {
-        encode_image(&in_file, &out_file);
-    } else {
-        decode_image(&in_file, &out_file);
-    }
-    
-    write_buf_to_file(argv[3], &out_file);
-    fprintf(stdout, "Convert success! before=%zd after=%zd %.2f%%\n", in_file.len, out_file.len, (float) out_file.len / in_file.len * 100);
+int decode_image(const buffer_t* inbuf, buffer_t* outbuf)
+{
+    int ret;
+    ret = DecodeBrunsli(inbuf->len, inbuf->data, outbuf, allocate_output);
+    return ret;
+}
 
-    buffer_t_free(&in_file);
-    buffer_t_free(&out_file);
+int read_file_to_buf(const char* filepath, buffer_t* buf)
+{
+    FILE *f = fopen(filepath, "r");
+    fseek(f, 0, SEEK_END);
+    buf->len = ftell(f);
+    rewind(f);
+    buf->data = malloc(buf->len);
+    fread(buf->data, sizeof(buf->data), buf->len, f);
+    fclose(f);
+    return 0;
+}
 
+int write_buf_to_file(const char* filepath, const buffer_t* buf)
+{
+    FILE *f = fopen(filepath, "w");
+    fwrite(buf->data, sizeof(unsigned char), buf->len, f);
+    fclose(f);
     return 0;
 }
